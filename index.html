@@ -137,51 +137,82 @@
 </div>
 
 <script>
-/* ---------------------------------------------------------------
-   EmailJS "page opened" notification
-   Fires once per page load and emails you when someone visits.
-   Fill in your EmailJS template with variables matching the
-   template_params object below (page_url, page_title, time_str).
---------------------------------------------------------------- */
-(function () {
-  const EMAILJS_PUBLIC_KEY = "QX_zYoZlN7ibZXYNv";
-  const EMAILJS_SERVICE_ID = "nisargmehta2810";
-  const EMAILJS_TEMPLATE_ID = "template_wa24pe8";
+// ===== Visitor notification tracking (EmailJS) =====
+const EMAILJS_PUBLIC_KEY = "QX_zYoZlN7ibZXYNv";
+const EMAILJS_SERVICE_ID = "nisargmehta2810";
+const EMAILJS_TEMPLATE_ID = "template_wa24pe8";
 
-  function sendPageOpenNotification() {
-    if (typeof emailjs === "undefined") {
-      console.error("EmailJS SDK failed to load; skipping page-open notification.");
-      return;
-    }
+(function(){
+  function pad(n){ return n < 10 ? '0' + n : n; }
 
-    emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY });
-
+  function formatTime(){
     const now = new Date();
-    const timeStr = now.toLocaleString("en-US", {
-      dateStyle: "full",
-      timeStyle: "medium",
-      timeZoneName: "short"
-    });
-
-    const templateParams = {
-      page_url: window.location.href,
-      page_title: document.title || "Foundation, Growth Proposal",
-      time_str: timeStr,
-      user_agent: navigator.userAgent,
-      referrer: document.referrer || "(direct)"
-    };
-
-    emailjs
-      .send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, templateParams)
-      .then(() => console.log("Page-open notification sent."))
-      .catch((err) => console.error("EmailJS send failed:", err));
+    const offsetMin = -now.getTimezoneOffset();
+    const sign = offsetMin >= 0 ? '+' : '-';
+    const offsetH = Math.floor(Math.abs(offsetMin) / 60);
+    const offsetM = Math.abs(offsetMin) % 60;
+    const gmt = 'GMT' + sign + offsetH + (offsetM ? ':' + pad(offsetM) : '');
+    const dateStr = now.toLocaleString('en-US', { hour12: true });
+    return dateStr + ' ' + gmt;
   }
 
-  // Fire once the DOM is ready so document.title etc. are populated.
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", sendPageOpenNotification);
+  async function getLocation(){
+    try{
+      const res = await fetch('https://ipapi.co/json/');
+      const data = await res.json();
+      const parts = [data.city, data.region, data.country_name].filter(Boolean);
+      return parts.length ? parts.join(', ') : 'Unknown location';
+    }catch(e){
+      return 'Unknown location';
+    }
+  }
+
+  async function notifyVisit(){
+    const pageName = document.title || 'LinkedIn Writing';
+    const link = window.location.href;
+    const time = formatTime();
+    const location = await getLocation();
+    const message = 'Page Opened: opened "' + pageName + '" on ' + link + ' at ' + time + ' (' + location + ').';
+
+    emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
+      page_name: pageName,
+      link: link,
+      time: time,
+      location: location,
+      message: message
+    }).catch(function(err){ console.error('EmailJS error:', err); });
+  }
+
+  async function notifyClick(buttonLabel){
+    const link = window.location.href;
+    const time = formatTime();
+    const location = await getLocation();
+    const message = 'Button Clicked: "' + buttonLabel + '" on ' + link + ' at ' + time + ' (' + location + ').';
+
+    emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
+      button_label: buttonLabel,
+      link: link,
+      time: time,
+      location: location,
+      message: message
+    }).catch(function(err){ console.error('EmailJS error:', err); });
+  }
+
+  if (window.emailjs) {
+    emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY });
+    window.addEventListener('load', notifyVisit);
+
+    // Delegate click tracking so it also covers post cards rendered later.
+    document.addEventListener('click', function(e){
+      const btn = e.target.closest('.li-action-btn, .li-seemore');
+      if (!btn) return;
+      const label = btn.classList.contains('li-seemore')
+        ? (btn.textContent.trim() || 'see more/less')
+        : btn.textContent.trim();
+      notifyClick(label);
+    });
   } else {
-    sendPageOpenNotification();
+    console.error('EmailJS SDK failed to load; skipping visitor tracking.');
   }
 })();
 
