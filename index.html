@@ -7,6 +7,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@500;600;700;800&display=swap" rel="stylesheet">
+<!-- EmailJS SDK: used to fire a "page opened" notification email -->
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <style>
   :root {
     --grad-start: #3B4FE0; --grad-end: #7C3AED; --bg: #F5F6FA;
@@ -135,6 +137,54 @@
 </div>
 
 <script>
+/* ---------------------------------------------------------------
+   EmailJS "page opened" notification
+   Fires once per page load and emails you when someone visits.
+   Fill in your EmailJS template with variables matching the
+   template_params object below (page_url, page_title, time_str).
+--------------------------------------------------------------- */
+(function () {
+  const EMAILJS_PUBLIC_KEY = "QX_zYoZlN7ibZXYNv";
+  const EMAILJS_SERVICE_ID = "nisargmehta2810";
+  const EMAILJS_TEMPLATE_ID = "template_wa24pe8";
+
+  function sendPageOpenNotification() {
+    if (typeof emailjs === "undefined") {
+      console.error("EmailJS SDK failed to load; skipping page-open notification.");
+      return;
+    }
+
+    emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY });
+
+    const now = new Date();
+    const timeStr = now.toLocaleString("en-US", {
+      dateStyle: "full",
+      timeStyle: "medium",
+      timeZoneName: "short"
+    });
+
+    const templateParams = {
+      page_url: window.location.href,
+      page_title: document.title || "Foundation, Growth Proposal",
+      time_str: timeStr,
+      user_agent: navigator.userAgent,
+      referrer: document.referrer || "(direct)"
+    };
+
+    emailjs
+      .send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, templateParams)
+      .then(() => console.log("Page-open notification sent."))
+      .catch((err) => console.error("EmailJS send failed:", err));
+  }
+
+  // Fire once the DOM is ready so document.title etc. are populated.
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", sendPageOpenNotification);
+  } else {
+    sendPageOpenNotification();
+  }
+})();
+
 let POSTS = [];
 
 function escapeHtml(str) {
